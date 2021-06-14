@@ -1,2 +1,2 @@
 # RePaD
-Recursive Partitioning Discretization for dynamic discrete choice modeling
+Recursive Partitioning Discretizer for dynamic discrete choice modeling
