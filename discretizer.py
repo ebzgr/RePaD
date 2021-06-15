@@ -111,8 +111,8 @@ class DataDriveDiscretizer:
 
         new_df, new_parts, improve, next_dec_ll, next_trans_ll = self._find_next_split(q_cols, total_pi, parallel=parallel)
         improve_rate = -improve/self.current_adj_ll
-        print('Split {}: Improvement = {}'.format(len(new_parts),improve_rate))
-        while(improve_rate>self.delta):
+        print('Partition {}: Improvement = {}'.format(len(new_parts),improve_rate))
+        while((improve_rate>self.delta) & (total_pi<self.max_pi)):
             self.current_adj_ll = next_dec_ll + (self.lamb_adj*self.lamb) * next_trans_ll
             self.score = self.current_adj_ll/(self.lamb+1)
             total_pi += 1
@@ -135,7 +135,7 @@ class DataDriveDiscretizer:
             new_df, new_parts, improve, next_dec_ll, next_trans_ll = self._find_next_split(q_cols, total_pi, parallel=parallel)
             improve_rate = -improve/self.current_adj_ll
 
-            print('Split {}: Improvement = {}'.format(len(new_parts),improve_rate))
+            print('Partition {}: Improvement = {}'.format(len(new_parts),improve_rate))
 
         parts_cols = ['state']+self.parts.columns[self.parts.columns.str.contains('q_')].tolist()
         return self.parts[parts_cols].copy(), self.report.copy()
