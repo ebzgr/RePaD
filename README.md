@@ -3,7 +3,7 @@
 Repad is an algorithm that controls a high-dimensional variable set in the dynamic discrete choice modeling settings. It uses the idea behind recursive partitioning to discretize the state space and reduce the dimensionality of a high-dimensional control variable set to a one-dimensional categorical variable using a weighted sum of decision probabilities and state transition probabilities.
 For more information about the algorithm, please read the first draft of the paper in the following.
 
-https://staff.washington.edu/ebar/data/RePaD.pdf
+https://arxiv.org/pdf/2208.01476.pdf
 
 This repository contains five modules. The discretization algorithm is implemented in the file "discretizer." The rest of the modules are provided to experiment with the algorithm using the extended version of the canonical Rust (1987)  bus engine replacement problem. The modules are as the following:
 1. discretization_generator: This module can generate a random discretization in a high-dimensional state space. It can be used to generate a discretized high-dimensional variable set.
