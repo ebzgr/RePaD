@@ -4,6 +4,7 @@ import utility as utl
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
 
+
 class BusEngineNFXP:
     def __init__(self, method='rlogit', min_diff=10**-6, max_iter=100):
         """
@@ -89,7 +90,7 @@ class BusEngineNFXP:
             
             self.history.append(alpha)
             
-            df = df.drop(['delta_ev'],1)
+            df = df.drop(['delta_ev'],axis = 1)
             max_diff = max(np.abs((last_params-new_params)))
             last_params = new_params
             i = i + 1
@@ -292,9 +293,9 @@ def _calculate_observation_ev(df, alpha, f, st_matrix, states_df, discounting_fa
     state_ev_df = _calculate_state_ev(alpha, f, st_matrix, states_df, discounting_factor, max_x, dim_pi, J, history)
     state_ev_df['delta_ev']=state_ev_df['ev']-state_ev_df['ev'].shift(1)
     if('delta_ev' in df):
-        df = df.drop(['delta_ev'],1)
+        df = df.drop(['delta_ev'],axis = 1)
     if('pr' in df):
-        df = df.drop(['pr'],1)        
+        df = df.drop(['pr'],axis = 1)        
     df = df.merge(state_ev_df[state_ev_df.d==1][['delta_ev','x','pi','pr']],on=['x','pi'],how='left')
     
     return df, state_ev_df
@@ -336,7 +337,6 @@ def _calculate_state_ev(alpha, f, st_matrix, states_df, discounting_factor, max_
     
     v = np.zeros(max_x*dim_pi*J).reshape(max_x*dim_pi,J)
     u = np.matrix((1-states_df['d'])*(alpha*states_df['x']+utl.hot_encode(states_df['pi']).dot(-f))).T.reshape(max_x*dim_pi,J)
-
     max_diff = np.inf
     while(min_diff<max_diff):
         nv = u + (discounting_factor*(st_matrix.dot(np.log(np.exp(v).sum(axis=1))))).reshape(max_x*dim_pi,J) # Bellman 
@@ -373,9 +373,11 @@ def _logit_estimate(df, discounting_factor,init_params):
         The classifier model.
 
     """
-    offset = discounting_factor*df['delta_ev']
-    classifier = smf.glm(formula='d ~ C(pi) + x - 1', data=df, offset=offset,
-                    family = sm.families.Binomial()).fit(start_params=init_params, method='bfgs')
+    # Clip very large and very small values to prevent estimation errors
+    df['delta_ev_clipped'] = df['delta_ev'].clip(lower=-10, upper=10) 
+    offset = discounting_factor * df['delta_ev_clipped']
+
+    classifier = smf.glm(formula='d ~ C(pi) + x - 1', data=df, offset=offset,family = sm.families.Binomial()).fit(start_params=init_params, method='bfgs')
     return classifier
 
 

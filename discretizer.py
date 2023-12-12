@@ -7,7 +7,7 @@ from joblib import Parallel, delayed
 class DataDriveDiscretizer:
     def __init__(self, lamb = 1, delta=0.01, min_size=0, smoothing_del = 10**-5, max_pi = None):
         """
-        The algorithm discretibed in XXX. This algorithm discretizes a high-dimensional variable set Q to control
+        This algorithm discretizes a high-dimensional variable set Q to control
         for potential biases in dynamic discrete choice modeling.
 
         Parameters

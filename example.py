@@ -11,13 +11,13 @@ generate bus engine replacement problem using the generated random discretizatio
 recover the random partitioning using data-driven discretization algorithm model, and finally recover 
 the bus engine replacement problem parameters using the nested fixed point estimated module.
 '''
-
+np.random.seed(0)
 ## Generate the discretization
 dim_q = 5
 dim_active_q = 2
 max_q = 10
 dim_pi = 4
-replacement_cost = -np.arange(4,8)
+replacement_cost = -np.arange(4,8) #Set the replacement costs as negative
 
 par_gen = dig.RandomDiscretizationGenerator(dim_q, dim_active_q, dim_pi, max_q)
 discretization = par_gen.generate_random_discretization(2)
@@ -27,7 +27,7 @@ discretization['f_tr'] = np.arange(dim_pi) #The mileage transition in each state
 ## Generate the data
 
 max_mileage = 30
-mileage_coefficient=-0.2
+mileage_coefficient=-0.2 #Set the mileage coefficient as negative 
 discounting_factor=0.9
 q_transition = utl.generate_pi_transition(dim_pi, 3, 2) # The state transition in Pi(Q) dimension
 
@@ -55,15 +55,24 @@ use a simple hyper-param optimization. we set a small value for delta small and 
 of partitions. We then use the performance on the validation set to choose the optimal number of 
 partitions.
 '''
-discretizer = dis.DataDriveDiscretizer(delta=0.001, max_pi=10) 
+discretizer = dis.DataDriveDiscretizer(delta=0.01, max_pi=10) 
 _ , report = discretizer.discretize(data, val_data)
 # Find the optimal number of partitions, by choosing the one that minimizes score in the validation set.
-optimal_parts = report.iloc[report.test_score.argmax()].part.astype(int) 
+optimal_parts = report.iloc[report.test_score.argmax()].part.astype(int)
+print('The estimated optimal number of partitions is {}'.format(optimal_parts))
 
+print("Discretizing the data")
 discretizer = dis.DataDriveDiscretizer(max_pi = optimal_parts)
 discretization_est, _ = discretizer.discretize(test_data, None)
 ## Recover the engine replacement parameters
+print("Recovering the engine replacement parameters")
 estimator = st.BusEngineNFXP()
 pi = utl.q_to_pi_states(discretization_est, test_data['Q'], dim_q) #Recover the partition of each observation in Q
 bestll,f,alpha = estimator.estimate_theta(test_data['ids'], test_data['periods'], test_data['X'].flatten().tolist(), pi, test_data['Y'], discounting_factor = discounting_factor)
 discretization_est['f_dc'] = f
+estimated_replacement = np.abs(f)
+estimated_replacement.sort()
+print("The estimated coefficient of maintenance cost is {}. The actual value is {}.".format(alpha[0], mileage_coefficient))
+print("Estimated replacement costs are {}".format(estimated_replacement))
+print("Actual replacement costs are {}".format(np.abs(replacement_cost)))
+print(discretization_est)

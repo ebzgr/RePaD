@@ -89,7 +89,7 @@ class RandomDiscretizationGenerator:
             var = np.random.randint(0,self.dim_active_q)
             val_min, val_max = pi[['q_{}_min'.format(var),'q_{}_max'.format(var)]].values.flatten().tolist()
             
-        split_val = np.int((val_min + val_max)/2)
+        split_val = int((val_min + val_max)/2)
         discretization.loc[new_state] = discretization.loc[pi.state].values.flatten()
         discretization.loc[new_state,'state']=new_state
         discretization.loc[pi.state,["q_{}_max".format(var),'total_split']] = [split_val,pi.total_split.values[0]+1]

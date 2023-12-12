@@ -77,7 +77,7 @@ def generate_base_state_dataframe(dim_pi, max_x, J):
     dt = pd.DataFrame(data={'pi':np.arange(0,dim_pi),'tmp':1})
     mileage = pd.DataFrame(data={'x':np.arange(0,max_x),'tmp':1})
     des = pd.DataFrame(data={'d':np.arange(0,J),'tmp':1})
-    data = mileage.merge(dt.merge(des)).drop('tmp',1)
+    data = mileage.merge(dt.merge(des)).drop('tmp',axis = 1)
     return data
 
 def calculate_ll(dHats, d): 
@@ -219,7 +219,7 @@ def base_split_dataframe(Q):
         The base discretization dataframe.
 
     """
-    discretization = pd.DataFrame(data={'state':[0],'next_var':[0],'next_val':[0],'next_improve':[0], 'next_dec_ll':[0], 'next_trans_ll':[0]})
+    discretization = pd.DataFrame(data={'state':[0],'next_var':'','next_val':[float(0)],'next_improve':[float(0)], 'next_dec_ll':[float(0)], 'next_trans_ll':[float(0)]})
 
     for i in range(0,Q.shape[1]):
         discretization['q_'+str(i)+'_min'] = Q[:,i].min()

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pdb
 import utility as utl
 
 class EngineReplacementDataGenerator:
@@ -76,10 +77,12 @@ class EngineReplacementDataGenerator:
         decision = pd.DataFrame(data={'d':np.arange(0,2),'pr':0})
         next_m = pd.DataFrame(data={'next_m':np.arange(0,max_m*2),'pr':0})
         next_state = pd.DataFrame(data={'next_pi':np.arange(0,dim_pi),'pr':0})
+
         tmp = mileage.merge(prt.merge(decision.merge(next_m.merge(next_state))))
         tmp['f_tr'] = discretization.f_tr[tmp.pi].values
         
         replace = tmp[(tmp.d==1)&(tmp.next_m==tmp.f_tr)].copy()
+        tmp['pr'] = tmp['pr'].astype(float)
         tmp.loc[(tmp.d==1)&(tmp.next_m==tmp.f_tr),'pr']=np.squeeze(np.asarray(qst[replace.pi,replace.next_pi]))
         maintain = tmp[(tmp.d==0)&((tmp.m+tmp.f_tr)==tmp.next_m)]
         tmp.loc[(tmp.d==0)&((tmp.m+tmp.f_tr)==tmp.next_m),'pr']=np.squeeze(np.asarray(qst[maintain.pi,maintain.next_pi]))
@@ -126,13 +129,12 @@ class EngineReplacementDataGenerator:
         mileage = pd.DataFrame(data={'m':np.arange(0,max_m),'tmp':1})
         des = pd.DataFrame(data={'d':np.arange(0,2),'tmp':1})
         data = mileage.merge(dt.merge(des))
-        data = data.drop('tmp',1)
+        data = data.drop('tmp', axis=1)
         
         ev = np.zeros(max_m*dim_pi*2).reshape(max_m*dim_pi,2)
         nev = np.zeros(max_m*dim_pi*2).reshape(max_m*dim_pi,2)
+        u = np.matrix((1-data['d'])*(alpha*data['m'])+(data['d']*(pd.get_dummies(data['pi']).dot(discretization.f_dc)))).T.reshape(max_m*dim_pi,2).astype(float)
 
-        u = np.matrix((1-data['d'])*(alpha*data['m'])+(data['d']*(pd.get_dummies(data['pi']).dot(discretization.f_dc)))).T.reshape(max_m*dim_pi,2)
-        #Todo: Switch TO Cython
         max_diff = 1
         while(eps<max_diff):
             v = np.log(np.exp(ev).sum(axis=1))
@@ -212,17 +214,19 @@ class EngineReplacementDataGenerator:
         q_matrix_titles = ['q_'+str(i) for i in range(0, self.dim_q)]
         baseDf[q_matrix_titles] =  pd.DataFrame(q_int,columns=[q_matrix_titles])
 
-        results = pd.DataFrame(columns=['id','t','m','d','pr','pi']+q_matrix_titles)
+        dataframes = []  # Create an empty list to store the temporary DataFrames
         for t in range(periods):
             tmp = baseDf.merge(ev_df[ev_df.d==1][['pi','m','pr']], on=(['pi','m']),how='left').copy()
             tmp['d']=np.random.binomial(1,tmp['pr'],len(tmp['pr']))
             tmp['t']=t
-            results = results.append(tmp[['id','t','m','d','pr','pi']+q_matrix_titles], ignore_index=True)
+            dataframes.append(tmp[['id','t','m','d','pr','pi']+q_matrix_titles])  # Append the temporary DataFrame to the list
 
             baseDf['m'] = utl.mileage_transition(baseDf['m'].values, tmp['d'].values, self.max_m, self.discretization.f_tr[baseDf.pi].values)
 
             baseDf['pi'] = utl.pi_state_transition( baseDf['pi'].values, self.qst)
             baseDf[q_matrix_titles]=self._random_q_from_pi_states(self.discretization, baseDf['pi'].values, self.dim_q)
+
+        results = pd.concat(dataframes, ignore_index=True)  # Concatenate all the DataFrames at once
 
         int_cols = ['id','t','m','d','pi'] + q_matrix_titles
         results[int_cols] = results[int_cols].astype(int)
