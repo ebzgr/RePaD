@@ -1,10 +1,9 @@
 import numpy as np
 import pandas as pd
-import utility as utl
+from . import utility as utl
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
 from scipy.optimize import basinhopping, minimize
-import pdb
 
 
 class BusEngineNFXP:

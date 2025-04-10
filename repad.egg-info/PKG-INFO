@@ -1,0 +1,57 @@
+Metadata-Version: 2.2
+Name: repad
+Version: 0.1.0
+Summary: Recursive Partitioning Algorithm for Dynamic Discrete Choice Models
+Home-page: https://github.com/ebzgr/RePaD
+Author: Ebrahim Barzegary
+Author-email: ebzgry@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: asttokens==2.4.1
+Requires-Dist: comm==0.2.0
+Requires-Dist: debugpy==1.8.0
+Requires-Dist: decorator==5.1.1
+Requires-Dist: exceptiongroup==1.2.0
+Requires-Dist: executing==2.0.1
+Requires-Dist: ipykernel==6.27.1
+Requires-Dist: ipython==8.18.1
+Requires-Dist: jedi==0.19.1
+Requires-Dist: joblib==1.3.2
+Requires-Dist: jupyter_client==8.6.0
+Requires-Dist: jupyter_core==5.5.0
+Requires-Dist: matplotlib-inline==0.1.6
+Requires-Dist: nest-asyncio==1.5.8
+Requires-Dist: numpy==1.26.2
+Requires-Dist: packaging==23.2
+Requires-Dist: pandas==2.1.4
+Requires-Dist: parso==0.8.3
+Requires-Dist: patsy==0.5.4
+Requires-Dist: pexpect==4.9.0
+Requires-Dist: platformdirs==4.1.0
+Requires-Dist: prompt-toolkit==3.0.42
+Requires-Dist: psutil==5.9.6
+Requires-Dist: ptyprocess==0.7.0
+Requires-Dist: pure-eval==0.2.2
+Requires-Dist: Pygments==2.17.2
+Requires-Dist: python-dateutil==2.8.2
+Requires-Dist: pytz==2023.3.post1
+Requires-Dist: pyzmq==25.1.2
+Requires-Dist: scikit-learn==1.3.2
+Requires-Dist: scipy==1.11.4
+Requires-Dist: six==1.16.0
+Requires-Dist: stack-data==0.6.3
+Requires-Dist: statsmodels==0.14.0
+Requires-Dist: threadpoolctl==3.2.0
+Requires-Dist: tornado==6.4
+Requires-Dist: traitlets==5.14.0
+Requires-Dist: tzdata==2023.3
+Requires-Dist: wcwidth==0.2.12
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

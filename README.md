@@ -1,3 +1,4 @@
+
 # RePaD
 
 Repad is an algorithm that captures and controls for high-dimensional variables in the dynamic discrete choice models. It builds on the idea behind recursive partitioning to discretize the state space and reduce the dimensionality of a high-dimensional control variable set to a lower-dimensional categorical variable using a weighted sum of decision probabilities and state transition probabilities.
@@ -26,28 +27,31 @@ To install the required dependencies for this project, follow these steps:
 
 ```
 git clone https://github.com/ebzgr/RePaD.git
+cd RePaD
 ```
 
-2. It's recommended to create a virtual environment to isolate the dependencies for this project. You can do this with the following commands:
+2. (Optional but recommended) Create a virtual environment to isolate the dependencies for this project.
 
 ```
-python3 -m venv environment_name
-source environment_name/bin/activate # On Windows, use environment_name\Scripts\activate
+python3 -m venv env
+source env/bin/activate  # On Windows: env\Scripts\activate
 ```
 
-3. Once the virtual environment is activated, you can install the dependencies with:
+3. Install the package and all dependencies:
 
 ```
-pip install -r requirements.txt
+pip install -e .
 ```
 
+This will install RePaD in editable mode, using the full list of dependencies in `requirements.txt`.
 
 ## Usage
 
 Please refer to the following example files to see how to use the package for each setting:
-- `Bus engine replacement example.py`
-- `Durable good adoption example.py` 
-This script demonstrates how to generate a random discretization, generate data, recover the partitioning using the data-driven discretization algorithm, and estimate the parameters of the problem.
+- `examples/bus_engine_example.py`
+- `examples/durable_good_example.py`
+
+These scripts demonstrate how to generate a random discretization, generate data, recover the partitioning using the data-driven discretization algorithm, and estimate the parameters of the problem.
 
 ## Contact
 
@@ -56,4 +60,5 @@ Please reach out to Ebrahim Barzegary (barzegary@essec.edu) or Hema Yoganarasimh
 ## References:
 
 Rust, John. "Optimal replacement of GMC bus engines: An empirical model of Harold Zurcher." _Econometrica: Journal of the Econometric Society_ (1987): 999-1033.
+
 Song, Inseong, and Pradeep K. Chintagunta. "A Micromodel of New Product Adoption with Heterogeneous and Forward-Looking Consumers: Application to the Digital Camera Category." *Quantitative Marketing and Economics* 1, no. 4 (2003): 371–407.

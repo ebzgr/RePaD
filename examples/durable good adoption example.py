@@ -1,9 +1,9 @@
 import numpy as np
-import data_generator as dag
-import discretizer as dis
-import utility as utl
-import discretization_generator as dig
-import estimator as st
+import repad.data_generator as dag
+import repad.discretizer as dis
+import repad.utility as utl
+import repad.discretization_generator as dig
+import repad.estimator as st
 import pandas as pd
 
 """
