@@ -16,10 +16,9 @@ def get_partitioning_variables(df):
         The data dictionary.
 
     """
-    df=df.rename(columns={'m':'x0'})
     ids = df.id.values
     periods = df.t.values
-    X = df[['x0']].values
+    X = df[['x']].values
     Q = df[df.columns[df.columns.str.contains('q_')]].values
     Y = df.d.values
     return {'ids':ids, 'periods':periods, 'X':X, 'Q':Q, 'Y':Y}
@@ -55,7 +54,7 @@ def create_dataframe_from_data(ids, periods, X, Q, Y):
     return df
 
 
-def generate_base_state_dataframe(dim_pi, max_x, J):
+def generate_base_state_dataframe(df, dim_pi, J, max_x, finite_horizon=False, max_period = 0):
     """
     Generate base state dataframe. It contains the interaction of all decisions in all the states.
 
@@ -74,6 +73,19 @@ def generate_base_state_dataframe(dim_pi, max_x, J):
         The base dataframe that contains all the states and decisions.
 
     """
+    
+    if(finite_horizon):
+        x_vals = np.unique(df.x.values)
+        pi_vals = np.unique(df.pi.values)
+            
+        x = pd.DataFrame(data={'x' : x_vals,'pr':0})
+        pi_state = pd.DataFrame(data={'pi':pi_vals, 'pr':0})
+        decision = pd.DataFrame(data={'d':np.unique(df.d.values),'pr':0})
+        periods = pd.DataFrame(data={'t':np.arange(0, max_period),'pr':0})
+        
+        data = x.merge(pi_state.merge(decision.merge(periods))).drop('pr',axis = 1)
+        return data
+    
     dt = pd.DataFrame(data={'pi':np.arange(0,dim_pi),'tmp':1})
     mileage = pd.DataFrame(data={'x':np.arange(0,max_x),'tmp':1})
     des = pd.DataFrame(data={'d':np.arange(0,J),'tmp':1})
@@ -149,6 +161,33 @@ def q_to_pi_states(discretization, q, dim_q):
 
     return qs.states.values
 
+def price_transition(x, purchase, min_p, increment=None):
+    """
+    Given observations mileage, replacement transition, and mileage increment amount, this function returns 
+    the next value for mileage
+
+    Parameters
+    ----------
+    price : array
+        Array of observed prices.
+    purchase : array
+        The boolean values for purchase or waiting. purchase[i] = 1 means that the purchase decision is chosen, and the consumer drops out of the sample.
+    min_p : int
+        Minimum price that a consumer can face
+    increment : Array, optional
+        The amount of mileage increment value in a period. The default is None. If the default value is chosen, 
+        the mileage increases is 1.
+
+    Returns
+    -------
+    price : array
+        The new price values.
+
+    """
+    if(increment is None):
+        return np.maximum(x-1,min_p)
+    else:
+        return np.maximum(x-increment,min_p)
  
 def mileage_transition(mileage, replace, max_m, increment=None):
     """
@@ -326,3 +365,18 @@ def add_next_state(df):
     df['next_pi'] = df.pi.shift(-1)
     df.loc[df.t==df.t.max(),['next_x','next_pi']] = [np.nan,np.nan]
     return df
+
+def get_soft_max(A):
+    A_max = A.max(axis=1, keepdims=True)
+    A_stable = A - A_max
+
+    # Step 2: Exponentiate each element in the stabilized matrix
+    exp_A = np.exp(A_stable)
+
+    # Step 3: Calculate the row-wise sum of exponentiated values
+    row_sum = exp_A.sum(axis=1, keepdims=True)
+
+    # Step 4: Divide each element by the sum of its row to get the softmax values
+    softmax_A = exp_A / row_sum
+    
+    return softmax_A

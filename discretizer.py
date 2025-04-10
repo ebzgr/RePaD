@@ -3,9 +3,11 @@ import pandas as pd
 import utility as utl
 from sklearn.model_selection import KFold
 from joblib import Parallel, delayed
+import pdb
+import time                                                
 
 class DataDriveDiscretizer:
-    def __init__(self, lamb = 1, delta=0.01, min_size=0, smoothing_del = 10**-5, max_pi = None):
+    def __init__(self, lamb = 1, delta=0.01, min_size=0, smoothing_del = 10**-5, finite_horizon = False, max_pi = None):
         """
         This algorithm discretizes a high-dimensional variable set Q to control
         for potential biases in dynamic discrete choice modeling.
@@ -14,6 +16,8 @@ class DataDriveDiscretizer:
         ----------
         lamb : float
             The relative importance of state transition likelihood versus decision likelihood.
+            lamb = 5 means state transition is 5 times more important
+            lamb = 0.2 means decision likelihood is 5 times more important
         delta : float
             Minumum accepted improvement in the weighted likelihood. If the increase in lower than delta the 
             algorithm stops the discretization
@@ -34,6 +38,7 @@ class DataDriveDiscretizer:
         self.delta = delta 
         self.min_size = min_size
         self.smoothing_del = smoothing_del
+        self.finite_horizon = finite_horizon
         if(max_pi is None):
             self.max_pi = np.inf
         else:
@@ -41,12 +46,12 @@ class DataDriveDiscretizer:
 
     def _find_next_split(self, q_cols, total_pi, parallel=True):
         if(parallel):
-            element_run = Parallel(n_jobs=-1)(delayed(_update_best_split)(self.df.copy(), self.D, total_pi, pi, q_cols, self.current_adj_ll, self.min_size, self.lamb*self.lamb_adj, self.smoothing_del) for pi, row in self.parts.iterrows())
+            element_run = Parallel(n_jobs=-1)(delayed(_update_best_split)(self.df.copy(), self.D, total_pi, pi, q_cols, self.current_adj_ll, self.min_size, self.lamb*self.lamb_adj, self.smoothing_del, self.finite_horizon) for pi, row in self.parts.iterrows())
             for i in range(len(self.parts)):
                 self.parts.loc[self.parts.state==i,['next_var','next_val','next_improve','next_dec_ll','next_trans_ll']]=element_run[i]
         else:
             for pi, row in self.parts.iterrows():
-                self.parts.loc[self.parts.state==pi,['next_var','next_val','next_improve','next_dec_ll','next_trans_ll']] = _update_best_split(self.df.copy(), self.D, total_pi, pi, q_cols, self.current_adj_ll, self.min_size, self.lamb*self.lamb_adj, self.smoothing_del)
+                self.parts.loc[self.parts.state==pi,['next_var','next_val','next_improve','next_dec_ll','next_trans_ll']] = _update_best_split(self.df.copy(), self.D, total_pi, pi, q_cols, self.current_adj_ll, self.min_size, self.lamb*self.lamb_adj, self.smoothing_del, self.finite_horizon)
 
         # Find the partition with the split with highest amount of likelihood improvement
         if(self.parts['next_improve'].max()>0):
@@ -79,14 +84,13 @@ class DataDriveDiscretizer:
             Performance report on the training and validation set.
 
         """
-
         self.df, self.mapper, q_cols = _create_dataset(data['ids'], data['periods'], data['X'], data['Q'], data['Y'])
         self.D = np.unique(self.df.d.astype(int))
         self.parts = utl.base_split_dataframe(data['Q'])
 
         total_pi = 1
-        counter, next_size, current_decision, current_size = _generate_counters(self.df, self.D, total_pi, self.smoothing_del)
-        dec_ll =  _decision_likelihood(current_decision, current_size)
+        counter, current_decision, current_decision_size, next_size = _generate_counters(self.df, self.D, total_pi, self.smoothing_del, self.finite_horizon)
+        dec_ll =  _decision_likelihood(current_decision, current_decision_size)
         trans_ll =  _transition_likelihood(counter, current_decision, next_size)
         self.lamb_adj = dec_ll/trans_ll
         self.current_adj_ll = dec_ll + (self.lamb_adj*self.lamb) * trans_ll
@@ -111,7 +115,8 @@ class DataDriveDiscretizer:
 
         new_df, new_parts, improve, next_dec_ll, next_trans_ll = self._find_next_split(q_cols, total_pi, parallel=parallel)
         improve_rate = -improve/self.current_adj_ll
-        print('Partition {}: Improvement = {}'.format(len(new_parts),improve_rate))
+        top_split=new_parts[:-1].loc[new_parts[:-1]['next_improve'].idxmax()]
+        print('Split {} at {} in {} to generate partition {}: Improvement = {}'.format(top_split.next_var, top_split.next_val, top_split.state+1, len(new_parts), improve_rate))
         while((improve_rate>self.delta) & (total_pi<self.max_pi)):
             self.current_adj_ll = next_dec_ll + (self.lamb_adj*self.lamb) * next_trans_ll
             self.score = self.current_adj_ll/(self.lamb+1)
@@ -134,8 +139,8 @@ class DataDriveDiscretizer:
                 break
             new_df, new_parts, improve, next_dec_ll, next_trans_ll = self._find_next_split(q_cols, total_pi, parallel=parallel)
             improve_rate = -improve/self.current_adj_ll
-
-            print('Partition {}: Improvement = {}'.format(len(new_parts),improve_rate))
+            top_split=new_parts[:-1].loc[new_parts[:-1]['next_improve'].idxmax()]
+            print('Split {} at {} in {} to generate partition {}: Improvement = {}'.format(top_split.next_var, top_split.next_val, top_split.state+1, len(new_parts), improve_rate))
 
         parts_cols = ['state']+self.parts.columns[self.parts.columns.str.contains('q_')].tolist()
         return self.parts[parts_cols].copy(), self.report.copy()
@@ -166,7 +171,7 @@ class DataDriveDiscretizer:
 
         """
         df  = _create_test_dataset(self.mapper, self.parts, data['ids'], data['periods'], data['X'], data['Q'], data['Y'])
-        trans_pr, decision_pr = _get_prediction_tables(self.df, self.D, len(self.parts), self.smoothing_del)
+        trans_pr, decision_pr = _get_prediction_tables(self.df, self.D, len(self.parts), self.smoothing_del, self.finite_horizon)
         df = df.merge(trans_pr, how='left').merge(decision_pr, how='left')
         if((np.min(df.trans_pr_smooth)==0)&(self.lamb>0)):
             raise ValueError("A transition probability is zero. Please either set smoothing_del to a non-zero positive number or choose a bigger delta to prevent over-splitting.")
@@ -292,7 +297,7 @@ def _create_test_dataset(mapper, parts, ids, periods, X, Q, Y):
     df = utl.add_next_state(df)
     return df
 
-def _get_prediction_tables(df, D, total_pi, smoothing_del):
+def _get_prediction_tables(df, D, total_pi, smoothing_del, finite_horizon):
     """
     Given a dataframe, returns the probability of state transition and decisions
     
@@ -315,11 +320,11 @@ def _get_prediction_tables(df, D, total_pi, smoothing_del):
         A dataframe containing decision probabilities, and their smoothed version using additive smoothing.
 
     """
-    counter, next_size, current_decision, current_size = _generate_counters(df, D, total_pi, smoothing_del)
+    counter, current_decision, current_decision_size, next_size = _generate_counters(df, D, total_pi, smoothing_del, finite_horizon)
     counter = counter.merge(next_size, how='left').merge(current_decision, how='left')
     counter['trans_pr'] = counter['move_count'] /counter['next_count'] /counter['current_dec_count']
     counter['trans_pr_smooth'] = counter['move_count_smooth'] /counter['next_count_smooth'] /counter['current_dec_count_smooth']
-    current_decision = current_decision.merge(current_size, how='left')
+    current_decision = current_decision.merge(current_decision_size, how='left')
     current_decision['dec_pr']=current_decision['current_dec_count'] / current_decision['current_count']
     current_decision['dec_pr_smooth']=current_decision['current_dec_count_smooth'] / current_decision['current_count_smooth']
 
@@ -352,7 +357,7 @@ def _transition_likelihood(counter, current_decision, next_size):
 
 
 
-def _decision_likelihood(current_decision, current_size):
+def _decision_likelihood(current_decision, current_decision_size):
     """
     Calculate Decision Likelihood Part using N(d,x,pi) and N(x,pi)
 
@@ -369,13 +374,14 @@ def _decision_likelihood(current_decision, current_size):
         The likelihood of decision part of data.
 
     """
+#    pdb.set_trace()
     nom = np.sum(current_decision.current_dec_count*np.log(current_decision.current_dec_count_smooth))
-    den = np.sum(current_size.current_count*np.log(current_size.current_count_smooth))
+    den = np.sum(current_decision_size.current_count*np.log(current_decision_size.current_count_smooth))
     return nom - den
 
 
 
-def _generate_counters_base(df, D, total_pi):
+def _generate_counters_base(df, D, total_pi, finite_horizon):
     """
     Generate an empty counter dataframe where N(.) = 0 for any combination of X and PI(Q)
 
@@ -394,16 +400,22 @@ def _generate_counters_base(df, D, total_pi):
         The empty dataframe.
 
     """
+    start_time = time.time()
     x_df = pd.DataFrame(data={'x':df.x.unique(),'move_count':0})
     next_x_df = pd.DataFrame(data={'next_x':df.x.unique(),'move_count':0})
     D_df = pd.DataFrame(data={'d':D,'move_count':0})
     pi_df = pd.DataFrame(data={'pi':np.arange(total_pi),'move_count':0})
     next_pi_df = pd.DataFrame(data={'next_pi':np.arange(total_pi),'move_count':0})
     counter_base = x_df.merge(pi_df.merge(D_df.merge(next_x_df.merge(next_pi_df))))
+    if(finite_horizon):
+        t_df = pd.DataFrame(data={'t':df.t.unique(),'move_count':0})
+        counter_base = counter_base.merge(t_df)
+    
+ #   print("Execution time for _generate_counters_base: {} seconds".format(time.time()-start_time))
     return counter_base.drop(columns=['move_count'])
 
 
-def _generate_counters(df, D, total_pi, smoothing_del):
+def _generate_counters(df, D, total_pi, smoothing_del, finite_horizon):
     """
     Get the empty counter dataframe and populate it. The function add smoothing value to remove any zero probability
 
@@ -430,19 +442,31 @@ def _generate_counters(df, D, total_pi, smoothing_del):
         A dataframe containing N(x,pi).
 
     """
-    counter_base = _generate_counters_base(df, D, total_pi)
-    total = df.groupby(['x','pi','next_x','next_pi','d'])['id'].count().reset_index().rename(columns={'id':'move_count'}).astype('int64')
+    start_time = time.time()
+
+    counter_base = _generate_counters_base(df, D, total_pi, finite_horizon)
+    if(finite_horizon):
+        total = df.groupby(['x','pi','next_x','next_pi','d','t'])['id'].count().reset_index().rename(columns={'id':'move_count'}).astype('int32')
+    else:
+        total = df.groupby(['x','pi','next_x','next_pi','d'])['id'].count().reset_index().rename(columns={'id':'move_count'}).astype('int32')
     counter = counter_base.merge(total, how='left').fillna(0).astype("int64")
+    
     counter['move_count_smooth'] = counter['move_count'] + smoothing_del
+    
+    if(finite_horizon):
+        current_decision = counter.groupby(['x','pi','d','t'])[['move_count','move_count_smooth']].sum().reset_index().rename(columns={'move_count':'current_dec_count','move_count_smooth':'current_dec_count_smooth'})
+        current_decision_size = current_decision.groupby(['x','pi','t'])[['current_dec_count','current_dec_count_smooth']].sum().reset_index().rename(columns={'current_dec_count':'current_count', 'current_dec_count_smooth':'current_count_smooth'})
+    else:
+        current_decision = counter.groupby(['x','pi','d'])[['move_count','move_count_smooth']].sum().reset_index().rename(columns={'move_count':'current_dec_count','move_count_smooth':'current_dec_count_smooth'})
+        current_decision_size = current_decision.groupby(['x','pi'])[['current_dec_count','current_dec_count_smooth']].sum().reset_index().rename(columns={'current_dec_count':'current_count', 'current_dec_count_smooth':'current_count_smooth'})
 
     next_size = counter.groupby(['next_x','next_pi'])[['move_count','move_count_smooth']].sum().reset_index().rename(columns={'move_count':'next_count','move_count_smooth':'next_count_smooth'})
-    current_decision = counter.groupby(['x','pi','d'])[['move_count','move_count_smooth']].sum().reset_index().rename(columns={'move_count':'current_dec_count','move_count_smooth':'current_dec_count_smooth'})
-    current_size = current_decision.groupby(['x','pi'])[['current_dec_count','current_dec_count_smooth']].sum().reset_index().rename(columns={'current_dec_count':'current_count', 'current_dec_count_smooth':'current_count_smooth'})
-    return counter, next_size, current_decision, current_size
+    
+#    print("Execution time for _generate_counters: {} seconds".format(time.time()-start_time))
+    return counter, current_decision, current_decision_size, next_size
 
 
-# 
-def _check_split(df, D, total_pi, pi, col, val, current_ll, min_size, lamb, smoothing_del):
+def _check_split(df, D, total_pi, pi, col, val, current_ll, min_size, lamb, smoothing_del, finite_horizon):
     """
     Check the likelihood increase for the split in "pi" on "col" at "val"
 
@@ -486,16 +510,16 @@ def _check_split(df, D, total_pi, pi, col, val, current_ll, min_size, lamb, smoo
         return current_ll, 0, 0
     df['next_pi'] = df.pi.shift(-1)
     df.loc[df.t==df.t.max(),'next_pi'] = np.nan
-    counter, next_size, current_decision, current_size = _generate_counters(df, D, total_pi+1, smoothing_del)
+    counter, current_decision, current_decision_size, next_size = _generate_counters(df, D, total_pi+1, smoothing_del,finite_horizon)
 
-    dec_ll =  _decision_likelihood(current_decision, current_size)
+    dec_ll =  _decision_likelihood(current_decision, current_decision_size)
     trans_ll =  _transition_likelihood(counter, current_decision, next_size)
     new_ll = dec_ll + lamb * trans_ll
 
     return new_ll, dec_ll, trans_ll
 
 
-def _update_best_split(df, D, total_pi, pi ,q_cols, current_ll, min_size, lamb, smoothing_del):
+def _update_best_split(df, D, total_pi, pi ,q_cols, current_ll, min_size, lamb, smoothing_del, finite_horizon):
     """
     Find the best next split in partition pi given the current partitioning
 
@@ -543,7 +567,7 @@ def _update_best_split(df, D, total_pi, pi ,q_cols, current_ll, min_size, lamb, 
         vals = part_df[col].unique().astype("int64")
         vals.sort()
         for val in vals[1:]:
-            newll, dec_ll, trans_ll = _check_split(df.copy(), D, total_pi, pi, col, val, current_ll, min_size, lamb, smoothing_del)
+            newll, dec_ll, trans_ll = _check_split(df.copy(), D, total_pi, pi, col, val, current_ll, min_size, lamb, smoothing_del, finite_horizon)
             if(newll>best_ll):
                 best_ll = newll
                 best_dec_ll = dec_ll
