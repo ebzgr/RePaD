@@ -46,8 +46,10 @@ pip install -r requirements.txt
 
 Please refer to the following example files to see how to use the package for each setting:
 - `Bus engine replacement example.py`
-- `Durable good adoption example.py` 
-This script demonstrates how to generate a random discretization, generate data, recover the partitioning using the data-driven discretization algorithm, and estimate the parameters of the problem.
+- `Durable good adoption example.py`
+
+  
+These scripts demonstrates how to generate a random discretization, generate data, recover the partitioning using the data-driven discretization algorithm, and estimate the parameters of the problem.
 
 ## Contact
 
